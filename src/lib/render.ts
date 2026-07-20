@@ -27,18 +27,27 @@ let fonteCache: { font: opentype.Font; arquivo: string } | null = null;
 export function carregarFonte(): { font: opentype.Font; arquivo: string } {
   if (fonteCache) return fonteCache;
   const dir = join(process.cwd(), "assets", "fonts");
+  const tentativas: string[] = [];
+
   for (const nome of FONTES) {
     const caminho = join(dir, nome);
+    tentativas.push(caminho);
     if (!existsSync(caminho)) continue;
+
+    // Cópia para um ArrayBuffer próprio em vez de fatiar `buf.buffer`: o Buffer
+    // do Node costuma compartilhar um pool com outros buffers, e o opentype.js
+    // recusa o que não for um ArrayBuffer "limpo".
     const buf = readFileSync(caminho);
-    const font = opentype.parse(
-      buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
-    );
-    fonteCache = { font, arquivo: nome };
+    const bytes = new ArrayBuffer(buf.byteLength);
+    new Uint8Array(bytes).set(buf);
+
+    fonteCache = { font: opentype.parse(bytes), arquivo: nome };
     return fonteCache;
   }
+
   throw new Error(
-    `Nenhuma fonte encontrada em assets/fonts. Esperado um destes: ${FONTES.join(", ")}`
+    `Nenhuma fonte encontrada. Procurei em:\n${tentativas.join("\n")}\n` +
+      `(cwd = ${process.cwd()})`
   );
 }
 

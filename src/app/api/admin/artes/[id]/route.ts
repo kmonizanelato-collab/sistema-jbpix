@@ -100,8 +100,17 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
   // Renderizamos SEMPRE a partir do modelo com as tabelas vazias, nunca do
   // resultado anterior — é o que deixa reeditar quantas vezes for preciso.
-  const template = await ler(art.template_url);
-  const saida = await renderArt(template, boxes, { ...art.tables, ...tables });
+  let saida: Buffer;
+  try {
+    const template = await ler(art.template_url);
+    saida = await renderArt(template, boxes, { ...art.tables, ...tables });
+  } catch (e) {
+    // Rota só de admin: mostrar o motivo real vale mais do que esconder. Sem
+    // isso, uma falha de ambiente vira um 500 mudo e impossível de diagnosticar.
+    const motivo = e instanceof Error ? e.message : String(e);
+    console.error("[render]", e);
+    return NextResponse.json({ error: `Falha ao gerar a arte: ${motivo}` }, { status: 500 });
+  }
 
   const antiga = art.rendered_url;
   const url = await salvar(`${art.name}-render.jpg`, saida, "image/jpeg");
