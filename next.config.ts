@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
   */
   outputFileTracingIncludes: {
     "/api/admin/artes/**": ["./assets/fonts/**", "./public/emoji/**"],
+    "/api/admin/diagnostico/**": ["./assets/fonts/**", "./public/emoji/**"],
   },
 };
 
