@@ -54,6 +54,15 @@ node scripts/limpar-tabela.mjs <entrada.jpg> <saida.jpg> <yDoTopoDaTabela>
    cai no Poppins, que é parecido mas não idêntico. Nenhum código muda — o
    carregador procura a Now primeiro.
 
+## Só o `main` é publicado
+
+O `vercel.json` bloqueia o build de qualquer outro branch. Dois motivos: um
+deploy de preview recebe uma URL pública, e este painel é interno; e ele
+apontaria para o **mesmo banco de produção**, sem isolamento nenhum.
+
+Se um dia precisar de ambiente de teste, o caminho é criar um banco separado
+para preview e então liberar o build — não o contrário.
+
 ## Stack
 
 Next.js (App Router) · PostgreSQL (Neon) · Tailwind · lucide-react · sharp ·

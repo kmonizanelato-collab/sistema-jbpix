@@ -78,17 +78,21 @@ export async function criarArt(input: {
 export async function salvarTabelas(
   id: number,
   tables: Record<string, Entry[]>,
-  renderedUrl: string,
-  boxes?: LayoutBox[]
+  renderedUrl: string
 ) {
   await query(
     `UPDATE arts SET tables = $2, rendered_url = $3, rendered_at = now(), updated_at = now()
-       ${boxes ? ", layout = $4" : ""}
      WHERE id = $1`,
-    boxes
-      ? [id, JSON.stringify(tables), renderedUrl, JSON.stringify({ boxes })]
-      : [id, JSON.stringify(tables), renderedUrl]
+    [id, JSON.stringify(tables), renderedUrl]
   );
+}
+
+/** Redefine as caixas de uma arte (usado se a detecção precisar ser refeita). */
+export async function salvarLayout(id: number, boxes: LayoutBox[]) {
+  await query("UPDATE arts SET layout = $2, updated_at = now() WHERE id = $1", [
+    id,
+    JSON.stringify({ boxes }),
+  ]);
 }
 
 export async function definirPublicacao(id: number, published: boolean) {
