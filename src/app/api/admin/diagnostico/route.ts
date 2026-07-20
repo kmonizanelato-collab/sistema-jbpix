@@ -81,5 +81,40 @@ export async function GET() {
     }),
   ];
 
+  // Agora o caminho real, etapa por etapa, sobre uma arte de verdade.
+  const { getArt } = await import("@/lib/arts");
+  const { ler, salvar } = await import("@/lib/storage");
+  const { renderArt } = await import("@/lib/render");
+  const { parseEntries } = await import("@/lib/parse");
+
+  const art = await getArt(3);
+  let template: Buffer | null = null;
+  let saida: Buffer | null = null;
+
+  checagens.push(
+    await tentar("arte 3 no banco", () => (art ? art.name : "não encontrada")),
+    await tentar("baixa o modelo do Blob", async () => {
+      if (!art) throw new Error("sem arte");
+      template = await ler(art.template_url);
+      return template.length;
+    }),
+    await tentar("sharp lê o modelo", async () => {
+      if (!template) throw new Error("sem modelo");
+      const m = await sharp(template).metadata();
+      return `${m.width}x${m.height} ${m.format}`;
+    }),
+    await tentar("renderiza 1 linha", async () => {
+      if (!art || !template) throw new Error("sem modelo");
+      const { entries } = parseEntries("1º 🦩 01 - Avestruz atrasado há 17 dias");
+      saida = await renderArt(template, art.layout.boxes, { "1": entries });
+      return saida.length;
+    }),
+    await tentar("grava o resultado no Blob", async () => {
+      if (!saida) throw new Error("sem saída");
+      const url = await salvar("diagnostico.jpg", saida, "image/jpeg");
+      return url;
+    })
+  );
+
   return NextResponse.json({ checagens }, { status: 200 });
 }
