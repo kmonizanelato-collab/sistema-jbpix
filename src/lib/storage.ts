@@ -39,7 +39,19 @@ export async function salvar(nome: string, dados: Buffer, contentType: string): 
   }
 
   if (usandoBlob()) {
-    const { url } = await put(nome, dados, {
+    /*
+      Cópia para um Buffer fora do pool antes de enviar.
+
+      O sharp devolve Buffer apoiado num pool de memória compartilhada, e o
+      fetch por baixo do @vercel/blob recusa corpo nessa condição com
+      "SharedArrayBuffer is not allowed" — derrubando a função sem deixar
+      mensagem. Local nunca aparecia porque ali gravamos em disco, e a migração
+      passou porque lia os arquivos com readFileSync, que não usa o pool.
+    */
+    const copia = Buffer.allocUnsafeSlow(dados.byteLength);
+    dados.copy(copia);
+
+    const { url } = await put(nome, copia, {
       access: "public",
       contentType,
       addRandomSuffix: true,

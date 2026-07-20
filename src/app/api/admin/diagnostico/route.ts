@@ -83,7 +83,7 @@ export async function GET() {
 
   // Agora o caminho real, etapa por etapa, sobre uma arte de verdade.
   const { getArt } = await import("@/lib/arts");
-  const { ler, salvar } = await import("@/lib/storage");
+  const { ler, salvar, remover } = await import("@/lib/storage");
   const { renderArt } = await import("@/lib/render");
   const { parseEntries } = await import("@/lib/parse");
 
@@ -112,7 +112,9 @@ export async function GET() {
     await tentar("grava o resultado no Blob", async () => {
       if (!saida) throw new Error("sem saída");
       const url = await salvar("diagnostico.jpg", saida, "image/jpeg");
-      return url;
+      // Não deixamos o arquivo de teste acumulando no store a cada checagem.
+      await remover(url);
+      return "upload e remoção ok";
     })
   );
 
