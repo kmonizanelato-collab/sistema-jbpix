@@ -44,3 +44,6 @@ next-env.d.ts
 
 # artes gravadas localmente enquanto nao ha Vercel Blob
 /public/uploads
+
+.vercel
+.env*

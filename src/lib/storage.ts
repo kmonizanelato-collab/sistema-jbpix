@@ -28,6 +28,16 @@ function avisarUmaVez() {
 
 export async function salvar(nome: string, dados: Buffer, contentType: string): Promise<string> {
   avisarUmaVez();
+
+  // Na Vercel o disco é somente leitura fora de /tmp. Sem o Blob, a gravação
+  // falharia com um EROFS obscuro no meio do upload; melhor dizer o que falta.
+  if (!usandoBlob() && process.env.VERCEL) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN não configurado. Na Vercel o disco é somente leitura, " +
+        "então as artes precisam do Vercel Blob. Crie o store em Storage > Blob."
+    );
+  }
+
   if (usandoBlob()) {
     const { url } = await put(nome, dados, {
       access: "public",
