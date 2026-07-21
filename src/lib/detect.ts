@@ -19,20 +19,21 @@ export type Box = {
 };
 
 /**
- * Onde a lista pode começar dentro do painel.
+ * Onde termina o cabeçalho — o título e o logo — dentro do painel.
  *
- * Não é só "onde acaba o título": nas artes de Natal um cordão de luzes entra
- * pelo alto do painel, e uma lista começando logo abaixo do título ficaria
- * escrita por cima das lâmpadas. Então procuramos tudo que não é fundo — texto,
- * logo, enfeite — e devolvemos o fim do primeiro bloco.
+ * Mede só o título, de propósito. As artes de Natal têm um cordão de luzes
+ * entrando pelo alto do painel, e já tentamos começar a lista abaixo dele: o
+ * texto ficou 20% menor que o padrão das artes, porque o enfeite comia mais de
+ * 100px da altura útil. A lista passa por cima das lâmpadas, que são de fundo
+ * — o mesmo que já acontece com o mascote nas outras artes.
  *
- * Dois cuidados que a arte da Federal de Natal exigiu:
+ * Três cuidados, todos vindos de casos reais:
  *
- * - Olhamos só o miolo horizontal do painel. O cordão de luzes contorna a
- *   caixa inteira, então perto das laterais há lâmpada em qualquer altura, e
- *   isso empurraria o começo da lista para o meio da arte.
- * - Agrupamos com folga generosa, para o título e o enfeite logo abaixo dele
- *   contarem como um bloco só.
+ * - Só branco neutro: as lâmpadas são amareladas e não podem passar por texto.
+ * - Só o miolo horizontal: o cordão contorna a caixa, e perto das laterais há
+ *   lâmpada em qualquer altura.
+ * - Só blocos com altura de texto: a moldura sangra um ou dois pixels para
+ *   dentro do painel, e esse bloco de 1 linha venceria a busca.
  */
 function medirCabecalho(
   at: Amostra,
@@ -48,18 +49,15 @@ function medirCabecalho(
 
   const linhas: number[] = [];
   for (let y = y0; y < yLimite; y++) {
-    let ocupados = 0;
+    let claros = 0;
     for (let x = a; x <= b; x++) {
       const [r, g, bl] = at(x, y);
-      if (Math.max(r, g, bl) > 90) ocupados++;
+      if (r > 190 && g > 190 && bl > 190 && Math.max(r, g, bl) - Math.min(r, g, bl) < 28) claros++;
     }
-    if (ocupados > 3) linhas.push(y);
+    if (claros > 3) linhas.push(y);
   }
 
-  // O primeiro bloco com altura de verdade. A moldura sangra um ou dois pixels
-  // para dentro do painel e formaria um "bloco" de 1 linha, que venceria a
-  // busca e faria a lista começar por cima do próprio cabeçalho.
-  const faixas = agrupar(linhas, 25);
+  const faixas = agrupar(linhas, 14);
   return faixas.find((f) => f.fim - f.ini >= 10)?.fim ?? y0;
 }
 
