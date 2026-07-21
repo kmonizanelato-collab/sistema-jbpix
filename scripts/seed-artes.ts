@@ -37,6 +37,25 @@ const ARTES: Arte[] = [
     card: "federal",
     nome: "Federal — Festa Junina",
   },
+  // Básico
+  {
+    arquivo: "imagens/saida/rj-goias-padrao.jpg",
+    tema: "basico",
+    card: "rj-goias",
+    nome: "PT-Rio e Look-Goiás — Básico",
+  },
+  {
+    arquivo: "imagens/saida/nacional-ptbahia-padrao.jpg",
+    tema: "basico",
+    card: "bahia-nacional",
+    nome: "PT Bahia e Nacional — Básico",
+  },
+  {
+    arquivo: "imagens/saida/federal-padrao.jpg",
+    tema: "basico",
+    card: "federal",
+    nome: "Federal — Básico",
+  },
   // Natal
   {
     arquivo: "imagens/saida/natal-rj-goias.jpg",
