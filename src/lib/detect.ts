@@ -18,6 +18,51 @@ export type Box = {
   titleBottom: number;
 };
 
+/**
+ * Onde a lista pode começar dentro do painel.
+ *
+ * Não é só "onde acaba o título": nas artes de Natal um cordão de luzes entra
+ * pelo alto do painel, e uma lista começando logo abaixo do título ficaria
+ * escrita por cima das lâmpadas. Então procuramos tudo que não é fundo — texto,
+ * logo, enfeite — e devolvemos o fim do primeiro bloco.
+ *
+ * Dois cuidados que a arte da Federal de Natal exigiu:
+ *
+ * - Olhamos só o miolo horizontal do painel. O cordão de luzes contorna a
+ *   caixa inteira, então perto das laterais há lâmpada em qualquer altura, e
+ *   isso empurraria o começo da lista para o meio da arte.
+ * - Agrupamos com folga generosa, para o título e o enfeite logo abaixo dele
+ *   contarem como um bloco só.
+ */
+function medirCabecalho(
+  at: Amostra,
+  x0: number,
+  x1: number,
+  y0: number,
+  yLimite: number
+): number {
+  const margem = Math.round((x1 - x0) * 0.12);
+  const a = x0 + margem;
+  const b = x1 - margem;
+  if (b <= a) return y0;
+
+  const linhas: number[] = [];
+  for (let y = y0; y < yLimite; y++) {
+    let ocupados = 0;
+    for (let x = a; x <= b; x++) {
+      const [r, g, bl] = at(x, y);
+      if (Math.max(r, g, bl) > 90) ocupados++;
+    }
+    if (ocupados > 3) linhas.push(y);
+  }
+
+  // O primeiro bloco com altura de verdade. A moldura sangra um ou dois pixels
+  // para dentro do painel e formaria um "bloco" de 1 linha, que venceria a
+  // busca e faria a lista começar por cima do próprio cabeçalho.
+  const faixas = agrupar(linhas, 25);
+  return faixas.find((f) => f.fim - f.ini >= 10)?.fim ?? y0;
+}
+
 const isRed = (r: number, g: number, b: number) =>
   r > 130 && g < 100 && b < 100 && r - Math.max(g, b) > 70;
 
@@ -76,7 +121,6 @@ export async function detectBoxes(input: Buffer): Promise<Box[]> {
   }
   const limite = (yFim - yIni) * 0.6;
   const colunas = agrupar(colCount.map((c, x) => (c >= limite ? x : -1)).filter((x) => x >= 0));
-  if (colunas.length < 2) return [];
 
   /** Trecho contínuo de vermelho mais longo numa coluna. */
   function corridaVertical(x: number): Faixa | null {
@@ -146,17 +190,7 @@ export async function detectBoxes(input: Buffer): Promise<Box[]> {
     const cy = topo.fim + 1;
     const ch = base.ini - topo.fim - 1;
 
-    // Última linha clara na parte de cima da caixa = fim do cabeçalho.
-    let titleBottom = cy;
-    const limiteBusca = cy + Math.round(ch * 0.45);
-    for (let y = cy; y < limiteBusca && y < H; y++) {
-      let claros = 0;
-      for (let x = a + 2; x <= b - 2; x++) {
-        const [r, g, bb] = at(x, y);
-        if (r > 195 && g > 195 && bb > 195) claros++;
-      }
-      if (claros > 3) titleBottom = y;
-    }
+    const titleBottom = medirCabecalho(at, a, b, cy, Math.min(H, cy + Math.round(ch * 0.45)));
 
     boxes.push({
       slot: (boxes.length + 1) as 1 | 2,
@@ -167,6 +201,101 @@ export async function detectBoxes(input: Buffer): Promise<Box[]> {
       titleBottom,
     });
     i += 2;
+  }
+
+  if (boxes.length > 0) return boxes;
+
+  // Nem toda arte tem moldura vermelha: a da Federal de Natal é contornada por
+  // um cordão de luzes douradas. O que não muda em nenhuma delas é o painel em
+  // si — um retângulo alto e quase preto, que é onde a lista vai. Procuramos
+  // por ele quando a moldura não aparece.
+  return detectarPaineis(at, W, H);
+}
+
+type Amostra = (x: number, y: number) => readonly [number, number, number];
+
+function detectarPaineis(at: Amostra, W: number, H: number): Box[] {
+  const preto = (x: number, y: number) => {
+    const [r, g, b] = at(x, y);
+    return Math.max(r, g, b) < 42;
+  };
+
+  const yIni = Math.round(H * 0.25);
+  const yFim = Math.round(H * 0.85);
+  const altura = yFim - yIni;
+
+  const col = new Array<number>(W).fill(0);
+  for (let x = 0; x < W; x++) {
+    let n = 0;
+    for (let y = yIni; y < yFim; y++) if (preto(x, y)) n++;
+    col[x] = n;
+  }
+
+  // O núcleo do painel é quase todo escuro. As bordas ficam de fora dessa conta
+  // porque enfeites (luzes, floco de neve) cruzam a coluna, então depois
+  // alargamos com um critério mais frouxo.
+  const nucleos = agrupar(
+    col.map((c, x) => (c >= altura * 0.9 ? x : -1)).filter((x) => x >= 0),
+    4
+  ).filter((g) => g.fim - g.ini > 60);
+  if (nucleos.length === 0) return [];
+
+  const boxes: Box[] = [];
+  for (const nucleo of nucleos.slice(0, 2)) {
+    let x0 = nucleo.ini;
+    let x1 = nucleo.fim;
+    while (x0 > 0 && col[x0 - 1] >= altura * 0.5) x0--;
+    while (x1 < W - 1 && col[x1 + 1] >= altura * 0.5) x1++;
+
+    // Altura: mesmo princípio da largura. O miolo do painel é quase todo
+    // escuro; as linhas do cabeçalho não são, porque o título e o logo ocupam
+    // boa parte delas. Achamos o miolo e depois subimos com critério frouxo,
+    // senão o painel "começaria" abaixo do próprio título.
+    const largura = x1 - x0 + 1;
+    const escuroPorLinha = new Array<number>(H).fill(0);
+    for (let y = 0; y < H; y++) {
+      let n = 0;
+      for (let x = x0; x <= x1; x++) if (preto(x, y)) n++;
+      escuroPorLinha[y] = n;
+    }
+
+    const miolo = agrupar(
+      escuroPorLinha.map((n, y) => (n >= largura * 0.85 ? y : -1)).filter((y) => y >= 0),
+      4
+    ).sort((a, b) => b.fim - b.ini - (a.fim - a.ini))[0];
+    if (!miolo || miolo.fim - miolo.ini < 150) continue;
+
+    /*
+      Os dois lados pedem critérios diferentes.
+
+      Para cima, frouxo: as linhas do cabeçalho têm título e logo ocupando boa
+      parte da largura, e um critério apertado deixaria o painel "começar"
+      abaixo do próprio título.
+
+      Para baixo, apertado: a borda inferior não corta seco, vai desbotando por
+      uns 30px. Com o mesmo critério de cima, o painel se estenderia por dentro
+      dessa transição e a última linha da lista sairia escrita em cima da borda.
+    */
+    const corpo = { ...miolo };
+    while (corpo.ini > 0 && escuroPorLinha[corpo.ini - 1] >= largura * 0.3) corpo.ini--;
+    while (corpo.fim < H - 1 && escuroPorLinha[corpo.fim + 1] >= largura * 0.8) corpo.fim++;
+
+    const titleBottom = medirCabecalho(
+      at,
+      x0,
+      x1,
+      corpo.ini,
+      Math.min(H, corpo.ini + Math.round((corpo.fim - corpo.ini) * 0.45))
+    );
+
+    boxes.push({
+      slot: (boxes.length + 1) as 1 | 2,
+      x: x0,
+      y: corpo.ini,
+      w: x1 - x0 + 1,
+      h: corpo.fim - corpo.ini + 1,
+      titleBottom,
+    });
   }
 
   return boxes;

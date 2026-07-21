@@ -8,9 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "db:setup": "tsx scripts/db-setup.ts",
-    "seed:junina": "tsx scripts/seed-junina.ts",
     "db:doctor": "tsx scripts/db-doctor.ts",
-    "storage:migrate": "tsx scripts/migrar-storage.ts"
+    "storage:migrate": "tsx scripts/migrar-storage.ts",
+    "seed:artes": "tsx scripts/seed-artes.ts",
+    "artes:redetectar": "tsx scripts/redetectar.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.6.1",
